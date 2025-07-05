@@ -10,6 +10,10 @@
 
   </p>
 
+# THIS IS A FORK
+
+Its meant for my Sygonix LED curtain (uses an esp32-c3) to use hardware UART instead of the built in CDC for more stability when streaming data via UART
+
 # Welcome to my project WLED! ✨
 
 A fast and feature-rich implementation of an ESP32 and ESP8266 webserver to control NeoPixel (WS2812B, WS2811, SK6812) LEDs or also SPI based chipsets like the WS2801 and APA102!

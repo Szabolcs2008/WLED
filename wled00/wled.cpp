@@ -322,7 +322,9 @@ void WLED::setup()
   delay(WLED_BOOTUPDELAY); // delay to let voltage stabilize, helps with boot issues on some setups
   #endif
   Serial.begin(115200);
+  Serial1.begin(115200, SERIAL_8N1, CTRL_SERIAL_RX, CTRL_SERIAL_TX);
   #if !ARDUINO_USB_CDC_ON_BOOT
+  Serial1.setTimeout(50);
   Serial.setTimeout(50);  // this causes troubles on new MCUs that have a "virtual" USB Serial (HWCDC)
   #else
   #endif
@@ -456,11 +458,18 @@ void WLED::setup()
   serialCanRX = !PinManager::isPinAllocated(hardwareRX); // Serial RX pin (GPIO 3 on ESP32 and ESP8266)
   serialCanTX = !PinManager::isPinAllocated(hardwareTX) || PinManager::getPinOwner(hardwareTX) == PinOwner::DebugOut; // Serial TX pin (GPIO 1 on ESP32 and ESP8266)
 
+  // Modified UART control
+  serial1CanRX = !PinManager::isPinAllocated(CTRL_SERIAL_RX);
+  serial1CanTX = !PinManager::isPinAllocated(CTRL_SERIAL_TX);
+  // serial1CanRX = true;
+  // serial1CanTX = true;
+
+
   #ifdef WLED_ENABLE_ADALIGHT
   //Serial RX (Adalight, Improv, Serial JSON) only possible if GPIO3 unused
   //Serial TX (Debug, Improv, Serial JSON) only possible if GPIO1 unused
   if (serialCanRX && serialCanTX) {
-    Serial.println(F("Ada"));
+    Serial1.println(F("Ada"));
   }
   #endif
 

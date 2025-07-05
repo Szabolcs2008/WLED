@@ -44,6 +44,9 @@
   #define WLED_ENABLE_JSONLIVE     // peek LED output via /json/live (WS binary peek is always enabled)
 #endif
 
+#define CTRL_SERIAL_TX 9          // Serial pins to use for UARt control (Serial1)
+#define CTRL_SERIAL_RX 10
+
 //#define WLED_DISABLE_ESPNOW      // Removes dependence on esp now
 
 #define WLED_ENABLE_FS_EDITOR      // enable /edit page for editing FS content. Will also be disabled with OTA lock
@@ -327,8 +330,8 @@ WLED_GLOBAL bool rlyOpenDrain _INIT(RLYODRAIN);
   constexpr uint8_t hardwareTX = TX;
 #else
   // use defaults for RX/TX
-  constexpr uint8_t hardwareRX = 3;
-  constexpr uint8_t hardwareTX = 1;
+  constexpr uint8_t hardwareRX = 1;
+  constexpr uint8_t hardwareTX = 3;
 #endif
 
 WLED_GLOBAL char ntpServerName[33] _INIT("0.wled.pool.ntp.org");   // NTP server to use
@@ -536,6 +539,8 @@ WLED_GLOBAL bool hueApplyColor _INIT(true);
 WLED_GLOBAL uint16_t serialBaud _INIT(1152); // serial baud rate, multiply by 100
 WLED_GLOBAL bool     serialCanRX _INIT(false);
 WLED_GLOBAL bool     serialCanTX _INIT(false);
+WLED_GLOBAL bool     serial1CanRX _INIT(false);
+WLED_GLOBAL bool     serial1CanTX _INIT(false);
 
 #ifndef WLED_DISABLE_ESPNOW
 WLED_GLOBAL bool enableESPNow        _INIT(false);  // global on/off for ESP-NOW

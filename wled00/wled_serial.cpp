@@ -28,48 +28,52 @@ void updateBaudRate(uint32_t rate){
   if (rate100 == currentBaud || rate100 < 96) return;
   currentBaud = rate100;
 
-  if (serialCanTX){
-    Serial.print(F("Baud is now ")); Serial.println(rate);
+  if (serial1CanTX){
+    Serial1.print(F("Baud is now ")); Serial1.println(rate);
+  }
+  if (serialCanTX) {
+    Serial.print(F("Control baud is now ")); Serial.println(rate);
   }
 
-  Serial.flush();
-  Serial.begin(rate);
+  Serial1.flush();
+  Serial1.begin(rate, SERIAL_8N1, CTRL_SERIAL_RX, CTRL_SERIAL_TX);
 }
 
 // RGB LED data return as JSON array. Slow, but easy to use on the other end.
 void sendJSON(){
-  if (serialCanTX) {
+  if (serial1CanTX) {
     unsigned used = strip.getLengthTotal();
-    Serial.write('[');
+    Serial1.write('[');
     for (unsigned i=0; i<used; i++) {
-      Serial.print(strip.getPixelColor(i));
-      if (i != used-1) Serial.write(',');
+      Serial1.print(strip.getPixelColor(i));
+      if (i != used-1) Serial1.write(',');
     }
-    Serial.println("]");
+    Serial1.println("]");
   }
 }
 
 // RGB LED data returned as bytes in TPM2 format. Faster, and slightly less easy to use on the other end.
 void sendBytes(){
-  if (serialCanTX) {
-    Serial.write(0xC9); Serial.write(0xDA);
+  if (serial1CanTX) {
+    Serial1.write(0xC9); Serial1.write(0xDA);
     unsigned used = strip.getLengthTotal();
     unsigned len = used*3;
-    Serial.write(highByte(len));
-    Serial.write(lowByte(len));
+    Serial1.write(highByte(len));
+    Serial1.write(lowByte(len));
     for (unsigned i=0; i < used; i++) {
       uint32_t c = strip.getPixelColor(i);
-      Serial.write(qadd8(W(c), R(c))); //R, add white channel to RGB channels as a simple RGBW -> RGB map
-      Serial.write(qadd8(W(c), G(c))); //G
-      Serial.write(qadd8(W(c), B(c))); //B
+      Serial1.write(qadd8(W(c), R(c))); //R, add white channel to RGB channels as a simple RGBW -> RGB map
+      Serial1.write(qadd8(W(c), G(c))); //G
+      Serial1.write(qadd8(W(c), B(c))); //B
     }
-    Serial.write(0x36); Serial.write('\n');
+    Serial1.write(0x36); Serial1.write('\n');
   }
 }
 
 void handleSerial()
 {
-  if (!(serialCanRX && Serial)) return; // arduino docs: `if (Serial)` indicates whether or not the USB CDC serial connection is open. For all non-USB CDC ports, this will always return true
+  // if (!(serialCanRX && Serial)) return; // arduino docs: `if (Serial)` indicates whether or not the USB CDC serial connection is open. For all non-USB CDC ports, this will always return true
+  if (!(Serial1 && serial1CanRX)) return;
 
   static auto state = AdaState::Header_A;
   static uint16_t count = 0;
@@ -78,16 +82,16 @@ void handleSerial()
   static byte red   = 0x00;
   static byte green = 0x00;
 
-  while (Serial.available() > 0)
+  while (Serial1.available() > 0)
   {
     yield();
-    byte next = Serial.peek();
+    byte next = Serial1.peek();
     switch (state) {
       case AdaState::Header_A:
         if      (next == 'A')  { state = AdaState::Header_d; }
         else if (next == 0xC9) { state = AdaState::TPM2_Header_Type; } //TPM2 start byte
-        else if (next == 'I')  { handleImprovPacket(); return; }
-        else if (next == 'v')  { Serial.print("WLED"); Serial.write(' '); Serial.println(VERSION); }
+        // else if (next == 'I')  { handleImprovPacket(); return; } // I am too lazy to make this work
+        else if (next == 'v')  { Serial1.print("WLED"); Serial1.write(' '); Serial1.println(VERSION); }
         else if (next == 0xB0) { updateBaudRate( 115200); }
         else if (next == 0xB1) { updateBaudRate( 230400); }
         else if (next == 0xB2) { updateBaudRate( 460800); }
@@ -103,15 +107,16 @@ void handleSerial()
         else if (next == '{')  { //JSON API
           bool verboseResponse = false;
           if (!requestJSONBufferLock(16)) {
-            Serial.printf_P(PSTR("{\"error\":%d}\n"), ERR_NOBUF);
+            Serial1.printf_P(PSTR("{\"error\":%d}\n"), ERR_NOBUF);
             return;
           }
-          Serial.setTimeout(100);
-          DeserializationError error = deserializeJson(*pDoc, Serial);
+          Serial1.setTimeout(100);
+          DeserializationError error = deserializeJson(*pDoc, Serial1);
           if (!error) {
             verboseResponse = deserializeState(pDoc->as<JsonObject>());
             //only send response if TX pin is unused for other purposes
-            if (verboseResponse && serialCanTX) {
+            // if (verboseResponse && serialCanTX) {
+            if (verboseResponse && serial1CanTX) {
               pDoc->clear();
               JsonObject stateDoc = pDoc->createNestedObject("state");
               serializeState(stateDoc);
@@ -119,7 +124,7 @@ void handleSerial()
               serializeInfo(info);
 
               serializeJson(*pDoc, Serial);
-              Serial.println();
+              Serial1.println();
             }
           }
           releaseJSONBufferLock();
@@ -151,7 +156,7 @@ void handleSerial()
       case AdaState::TPM2_Header_Type:
         state = AdaState::Header_A; //(unsupported) TPM2 command or invalid type
         if (next == 0xDA) state = AdaState::TPM2_Header_CountHi; //TPM2 data
-        else if (next == 0xAA) Serial.write(0xAC); //TPM2 ping
+        else if (next == 0xAA) Serial1.write(0xAC); //TPM2 ping
         break;
       case AdaState::TPM2_Header_CountHi:
         pixel = 0;
@@ -188,7 +193,7 @@ void handleSerial()
       continuousSendLED = false;
     }
 
-    Serial.read(); //discard the byte
+    Serial1.read(); //discard the byte
   }
 
   // If Continuous Serial Streaming is enabled, send new LED data as bytes
